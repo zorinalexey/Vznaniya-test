@@ -1,0 +1,104 @@
+version: '3'
+
+services:
+
+  apache:
+    container_name: "apache2-test"
+    build:
+      context: docker/httpd
+    ports:
+      - "8088:80"
+    volumes:
+      - "./src:/var/www/html:rw"
+      - "./docker/httpd/httpd.conf:/usr/local/apache2/conf/httpd.conf"
+    depends_on:
+      - php
+    restart: always
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.9
+
+  nginx:
+    build:
+      context: docker/nginx
+    container_name: "nginx-test"
+    working_dir: "/var/www/html"
+    ports:
+      - "8080:80"
+    volumes:
+      - "./src:/var/www/html:rw"
+      - "./docker/nginx/nginx.conf:/etc/nginx/nginx.conf"
+    depends_on:
+      - php
+    restart: always
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.10
+
+  php:
+    build:
+      context: docker/php
+    container_name: "php-test"
+    working_dir: "/var/www/html"
+    volumes:
+      - "./src:/var/www/html:rw"
+      - "./docker/php/php.ini:/usr/local/etc/php/php.ini:rw"
+    ports:
+      - "9001:9000"
+    depends_on:
+      - db
+      - redis
+    restart: always
+    links:
+      - db
+      - redis
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.11
+
+  db:
+    image: postgres:16
+    container_name: "db-test"
+    environment:
+      POSTGRES_DB: "test"
+      POSTGRES_USER: "test"
+      POSTGRES_PASSWORD: "e5%j~mkiXV}WQrfLa^rLnB7"
+      PGDATA: "/var/lib/postgresql/data/pgdata"
+    volumes:
+      - "./data/db/postgresql:/var/lib/postgresql/data/pgdata"
+      - "./data/logs/pgsql:/var/log/postgresql"
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.12
+
+  redis:
+    image: redis:6.2-alpine
+    container_name: "redis-test"
+    ports:
+      - "6379:6379"
+    command: "redis-server --save 20 1 --loglevel warning --requirepass eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81"
+    volumes:
+      - "./data/redis:/data:rw"
+    restart: always
+    networks:
+      app_net:
+        ipv4_address: 172.16.238.13
+
+volumes:
+  db:
+    driver: local
+  redis:
+    driver: local
+  data:
+    driver: local
+
+networks:
+  app_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
